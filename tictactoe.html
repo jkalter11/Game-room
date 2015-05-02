@@ -1,0 +1,487 @@
+<html>
+    <head>
+        <title> Tic-Tac-Toe Game</title>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+        <script src="https://cdn.firebase.com/js/client/2.2.4/firebase.js"></script>
+    </head>
+
+
+    <body>
+
+
+        <div id = "r0_c0" class = 'tick'> </div>
+
+        <div id = "r0_c1" class = 'tick'> </div>
+
+        <div id = "r0_c2" class = 'tick'> </div>
+
+        <div id = "r1_c0" class = 'tick'> </div>
+
+        <div id = "r1_c1" class = 'tick'> </div>
+
+        <div id = "r1_c2" class = 'tick'> </div>
+
+        <div id = "r2_c0" class = 'tick'> </div>
+
+        <div id = "r2_c1" class = 'tick'> </div>
+
+        <div id = "r2_c2" class = 'tick'> </div>
+
+		
+  
+  
+        <script>
+
+		
+
+			var user = "";               	//Contains the User name for the current User
+
+            var board = [[],[],[]];     	//Holds the board for the current User
+
+            var chat = [];              	//Holds all the messages currently in the chatroom
+
+            var myGame = "";                //Contains the Game that this user is in
+
+            var nextTurn = 'X';				//The next turn in this users game
+
+            var myPiece = "";				//The playing Piece of this User. either an x or an o
+
+            var users = [];					//all the users signed in to the chatroom
+
+            var myInvites = [];				//The names of the people who have invited this user to a game
+
+            var myFirebaseRef = new Firebase("https://vivid-heat-8948.firebaseio.com/");
+
+            
+			myFirebaseRef.child("chatroom").on('child_added',function(snapshot){
+			
+                var name = snapshot.val().name;
+
+                var text = snapshot.val().text;
+
+                //Check if the text that came in is a server Command. If it is then dont display it. If it isnt then display it
+
+                if (text.indexOf('server') != -1 ) {
+
+                    if ( text.indexOf(user) != -1 && text.indexOf('invite') != -1) {
+
+                        text = name + " has invited you. Type in server join " + name + " to accept the invite";
+						if(myInvites.indexOf(name) == -1)
+							myInvites.push(name);                                    	//myInvites keeps track of all the people who have invited this person to a game
+						myFirebaseRef.child(snapshot.key()).remove();					//Removes the invite from the database after it was added
+						
+                        name = "Server";
+
+                    }
+
+                    else if (myGame.length > 0 && myGame.indexOf(name) != -1 && text.indexOf("join") != -1) {
+						
+						myPiece = 'X';
+						
+                        newGame();
+
+                    }
+
+                }
+
+                chat.push(snapshot.val());
+
+                $('<div/>').text(text).prepend($('<em/>').text(name+': ')).appendTo($('#chat'));
+
+            });
+
+		function newGame(){
+
+            $('#chat').remove();
+
+            $('#message').remove();
+
+            myFirebaseRef.child('game' + myGame).update({'nextTurn': 'X'});
+
+            for (var r = 0; r < 3; r++) {
+
+                for(var c = 0; c < 3; c++){
+
+					var current = document.getElementById("r" + r + "_c" + c).style; 
+
+                    current.top = (33 * r) + "%";
+
+                    current.left = (33 * c) + "%";
+
+					current.width = "33%";
+
+					current.height = "33%";
+
+					current.position = "absolute";
+
+					current.border = "solid black 10px";
+
+					current.textAlign = "center";
+
+                    board[r][c] = " ";
+
+                }
+
+            }
+
+            //Sets the board on the database to be empty-cells
+
+            myFirebaseRef.child("game" + myGame + "/board").set(board);
+
+
+            $(".tick").click(function(){
+
+                if (nextTurn == myPiece) {
+
+                    if ($(this).html().indexOf("X") == -1 && $(this).html().indexOf("O") == -1) {
+
+                        var id = $(this).attr('id');
+
+                        var x = parseInt(id.substring(1,2));
+
+                        var y = parseInt(id.substring(4));
+
+                        myFirebaseRef.child("game" +myGame+"/board/" + x + "/" + y).set(nextTurn);
+
+						
+
+						if (!(checkWin(x,y) || checkTie())) {
+
+                         
+							if (nextTurn == "X") {
+
+								myFirebaseRef.child("game" + myGame).update({'nextTurn': 'O'});
+
+							}
+
+							else{
+
+								myFirebaseRef.child("game" + myGame).update({'nextTurn': 'X'});
+
+							}
+
+						}
+
+                    }
+
+                    else{
+
+                        alert("That block is already occupied. Try again!");
+
+                    }
+
+                }
+
+                else alert("Its not your Turn");
+
+            });
+		
+		//When a value was changed check which one and check for a win and a tie
+
+            myFirebaseRef.child("game" + myGame +"/board").on("value",function(snapshot){
+
+				var x;
+
+				var y;
+
+                for(var r = 0; r < 3; r++){
+
+                    for(var c = 0; c < 3; c++){
+
+						
+                        board[r][c] = snapshot.val()[r][c];
+						
+                        if(document.getElementById("r" + r + "_c" + c).innerHTML != "<br><br><br><b> " + board[r][c] + "</b>"){
+							
+							x = r; y = c;
+
+						}
+
+						document.getElementById("r" + r + "_c" + c).innerHTML = "<br><br><br><b> " + board[r][c] + "</b>";
+
+                    }
+
+                }
+				
+				if(checkTie() || checkWin(x,y)){
+					
+					resetGame();
+                    loadChatRoom();
+
+				}
+				
+            });
+
+			
+
+            myFirebaseRef.child("game" +myGame+"/nextTurn").on("value", function(snapshot){
+
+                nextTurn = snapshot.val();
+
+            });
+
+   
+        }
+
+
+		//this function gets rid of the tic tac toe board and loads up the chat room instead
+
+		function loadChatRoom(){
+
+		    for (var r = 0; r < 3; r++) {
+
+                        for(var c = 0; c < 3; c++){
+
+                            var current = document.getElementById("r" + r + "_c" + c).style; 
+
+                            current.width = "0%";
+
+                            current.height = "0%";
+
+                            current.border = "none";
+
+                            board[r][c] = " ";
+
+                            document.getElementById("r" + r + "_c" + c).innerHTML = " ";
+
+                        }
+
+                    }
+
+                    var myBody = document.getElementsByTagName('body');
+
+                    myBody[0].innerHTML += "<div id = 'chat'> </div> <input type = 'text' id = 'message' placeholder = 'Text'>";
+
+                    
+
+                    $('#message').keypress(function (e) {
+
+                        if (e.keyCode == 13) {
+
+                            var name = user;
+
+                            var text = $('#message').val();
+
+                            myFirebaseRef.child('chatroom').push({name: name, text: text});
+
+                            //Check if the user was trying to invite someone. If they were then set up my game to be gameuserVsperson invited.
+
+                            if (text.indexOf('server') != -1 && text.indexOf('invite') != -1) {
+
+                                for (var index in users) {
+
+                                    if (text.indexOf(users[index]) != -1) {
+
+                                        myGame = user + "Vs" + users[index];
+
+                                    }
+
+                                }
+
+                            }
+
+                            else if (text.indexOf('server') != -1 && text.indexOf('join') != -1) {
+
+                                for (var index in myInvites) {
+
+                                    if (text.indexOf(myInvites[index]) != -1) {
+
+                                        myGame = myInvites[index] + "Vs" + user;
+										
+										myInvites.splice(index,1)
+										
+										myPiece = 'O';
+
+                                        newGame();
+
+                                    }
+
+                                }
+
+                            }
+
+                            $('#message').val('');
+
+                        }
+
+                    });
+
+		}
+
+                //Every time a user logs in send their username to this user
+
+            myFirebaseRef.child('users').on('child_added',function(snapshot){
+                users.push(snapshot.val());
+				if(snapshot.val() == user)
+					myFirebaseRef.child("users/" + snapshot.key()).onDisconnect().remove();		
+            });
+				
+			myFirebaseRef.child('users').on('child_removed',function(snapshot){
+				users.splice(users.indexOf(snapshot.val()), 1)							//Removes the user that was removed from the local array
+			});
+
+        //These functions all check for a win by accepting the x and y value of the piece that was just added and checking its surroundings
+		//These functions do not change the database. Only the board variable
+
+            function checkWin(x,y) {
+
+                return checkRow(x,y) || checkCol(x,y) || checkDiag(x,y);
+
+            }
+
+            function checkRow(x,y){
+
+                var tmp = board[x][0];
+
+				if(tmp == " ") return false;
+
+                if(tmp == board[x][1] && tmp == board[x][2]){
+
+					alert(tmp + " Won!");
+
+					return true;
+
+				}
+
+				else return false;
+
+            }
+
+            function checkCol(x,y){
+
+                var tmp = board[0][y];
+
+				if(tmp == " ") return false;
+
+                if(tmp == board[1][y] && tmp == board[2][y]){
+
+					alert(tmp + " Won!");
+
+					return true;
+
+				}
+
+				return false;
+
+            }
+
+            function checkDiag(x,y){
+
+                if (board[1][1] == " ") {
+
+                    return false;
+
+                }
+
+                var tmp = board[1][1];
+
+                if((tmp == board[0][0] && tmp == board[2][2]) || (tmp == board[2][0] && tmp == board[0][2])){
+
+					alert(tmp + " Won!");
+
+					return true;
+
+				}
+
+				return false;
+
+            }
+
+            function resetGame(){
+
+                for(var r = 0; r < 3; r++){
+
+                    for (var c = 0; c < 3; c++) {
+
+                        document.getElementById("r" + r + "_c" + c).innerHTML = " ";
+
+                        board[r][c] = " ";
+
+                    }
+
+                }
+				myFirebaseRef.child("game" + myGame + "/nextTurn").off();
+				myFirebaseRef.child("game" + myGame + "/board").off();
+				myFirebaseRef.child("game" + myGame).off();
+				
+                myFirebaseRef.child("game" + myGame).remove();
+				
+				myGame = "";
+
+            }
+
+		// Returns true if board is full and false otherwise
+
+			function checkTie(){
+
+				for(var r = 0; r < 3; r++){
+
+					for(var c = 0; c < 3; c++){
+
+						if(board[r][c] == " "){
+
+							return false;
+
+						}
+
+					}
+
+				}
+
+				alert("It was a tie!");
+
+				return true;
+
+			}
+
+            function getUserName(){             //Asks the User for a Username that they will be using in this session. It must not be a username already being used
+                console.log(users);
+				while(user.length <= 0 || isCurrentUser(user)){
+
+                    user = prompt("Enter a Username");
+
+                }
+
+                myFirebaseRef.child('users').push(user);
+
+            }
+
+            function isCurrentUser(test){       //Returns true if test is the username for one of the users
+
+                for(var i in users){
+
+                    if (users[i] == test) {
+
+                        return true;
+
+                    }
+
+                }
+
+                return false;
+
+            }
+
+			myFirebaseRef.child('users').once('value',function(snapshot){
+				var index = 0;
+				for(var key in snapshot.val()){
+					users[index] = snapshot.val()[key];
+					index++;
+				}	
+				getUserName();
+				loadChatRoom();
+				
+			});
+            
+
+        </script> 
+
+    </body>
+
+    
+
+    
+
+    
+
+</html>
