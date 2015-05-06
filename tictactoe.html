@@ -1,8 +1,9 @@
 <html>
     <head>
-        <title> Tic-Tac-Toe Game</title>
+        <title> Game Room </title>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
         <script src="https://cdn.firebase.com/js/client/2.2.4/firebase.js"></script>
+        <script src = "tictactoe.js"></script>
     </head>
 
 
@@ -36,15 +37,9 @@
 
 			var user = "";               	//Contains the User name for the current User
 
-            var board = [[],[],[]];     	//Holds the board for the current User
-
             var chat = [];              	//Holds all the messages currently in the chatroom
 
             var myGame = "";                //Contains the Game that this user is in
-
-            var nextTurn = 'X';				//The next turn in this users game
-
-            var myPiece = "";				//The playing Piece of this User. either an x or an o
 
             var users = [];					//all the users signed in to the chatroom
 
@@ -52,7 +47,9 @@
 
             var myFirebaseRef = new Firebase("https://vivid-heat-8948.firebaseio.com/");
 
-            
+            var currentGame;
+
+
 			myFirebaseRef.child("chatroom").on('child_added',function(snapshot){
 			
                 var name = snapshot.val().name;
@@ -76,9 +73,8 @@
 
                     else if (myGame.length > 0 && myGame.indexOf(name) != -1 && text.indexOf("join") != -1) {
 						
-						myPiece = 'X';
-						
-                        newGame();
+                        currentGame = new Tictactoe(name,'X');
+                        currentGame.prepareGame();
 
                     }
 
@@ -90,143 +86,11 @@
 
             });
 
-		function newGame(){
-
-            $('#chat').remove();
-
-            $('#message').remove();
-
-            myFirebaseRef.child('game' + myGame).update({'nextTurn': 'X'});
-
-            for (var r = 0; r < 3; r++) {
-
-                for(var c = 0; c < 3; c++){
-
-					var current = document.getElementById("r" + r + "_c" + c).style; 
-
-                    current.top = (33 * r) + "%";
-
-                    current.left = (33 * c) + "%";
-
-					current.width = "33%";
-
-					current.height = "33%";
-
-					current.position = "absolute";
-
-					current.border = "solid black 10px";
-
-					current.textAlign = "center";
-
-                    board[r][c] = " ";
-
-                }
-
-            }
-
-            //Sets the board on the database to be empty-cells
-
-            myFirebaseRef.child("game" + myGame + "/board").set(board);
-
-
-            $(".tick").click(function(){
-
-                if (nextTurn == myPiece) {
-
-                    if ($(this).html().indexOf("X") == -1 && $(this).html().indexOf("O") == -1) {
-
-                        var id = $(this).attr('id');
-
-                        var x = parseInt(id.substring(1,2));
-
-                        var y = parseInt(id.substring(4));
-
-                        myFirebaseRef.child("game" +myGame+"/board/" + x + "/" + y).set(nextTurn);
-
-						
-
-						if (!(checkWin(x,y) || checkTie())) {
-
-                         
-							if (nextTurn == "X") {
-
-								myFirebaseRef.child("game" + myGame).update({'nextTurn': 'O'});
-
-							}
-
-							else{
-
-								myFirebaseRef.child("game" + myGame).update({'nextTurn': 'X'});
-
-							}
-
-						}
-
-                    }
-
-                    else{
-
-                        alert("That block is already occupied. Try again!");
-
-                    }
-
-                }
-
-                else alert("Its not your Turn");
-
-            });
-		
-		//When a value was changed check which one and check for a win and a tie
-
-            myFirebaseRef.child("game" + myGame +"/board").on("value",function(snapshot){
-
-				var x;
-
-				var y;
-
-                for(var r = 0; r < 3; r++){
-
-                    for(var c = 0; c < 3; c++){
-
-						
-                        board[r][c] = snapshot.val()[r][c];
-						
-                        if(document.getElementById("r" + r + "_c" + c).innerHTML != "<br><br><br><b> " + board[r][c] + "</b>"){
-							
-							x = r; y = c;
-
-						}
-
-						document.getElementById("r" + r + "_c" + c).innerHTML = "<br><br><br><b> " + board[r][c] + "</b>";
-
-                    }
-
-                }
-				
-				if(checkTie() || checkWin(x,y)){
-					
-					resetGame();
-                    loadChatRoom();
-
-				}
-				
-            });
-
-			
-
-            myFirebaseRef.child("game" +myGame+"/nextTurn").on("value", function(snapshot){
-
-                nextTurn = snapshot.val();
-
-            });
-
-   
-        }
-
-
 		//this function gets rid of the tic tac toe board and loads up the chat room instead
 
 		function loadChatRoom(){
+
+			//currentGame = null;
 
 		    for (var r = 0; r < 3; r++) {
 
@@ -240,7 +104,7 @@
 
                             current.border = "none";
 
-                            board[r][c] = " ";
+                            //currentGame.board[r][c] = " ";
 
                             document.getElementById("r" + r + "_c" + c).innerHTML = " ";
 
@@ -288,12 +152,9 @@
 
                                         myGame = myInvites[index] + "Vs" + user;
 										
-										myInvites.splice(index,1)
-										
-										myPiece = 'O';
-
-                                        newGame();
-
+                                        currentGame = new Tictactoe(myInvites[index],'O');
+                                        currentGame.prepareGame();
+                                    	myInvites.splice(index,1)
                                     }
 
                                 }
@@ -320,112 +181,6 @@
 				users.splice(users.indexOf(snapshot.val()), 1)							//Removes the user that was removed from the local array
 			});
 
-        //These functions all check for a win by accepting the x and y value of the piece that was just added and checking its surroundings
-		//These functions do not change the database. Only the board variable
-
-            function checkWin(x,y) {
-
-                return checkRow(x,y) || checkCol(x,y) || checkDiag(x,y);
-
-            }
-
-            function checkRow(x,y){
-
-                var tmp = board[x][0];
-
-				if(tmp == " ") return false;
-
-                if(tmp == board[x][1] && tmp == board[x][2]){
-					announceWinner(tmp);
-					return true;
-
-				}
-
-				else return false;
-
-            }
-
-            function checkCol(x,y){
-
-                var tmp = board[0][y];
-
-				if(tmp == " ") return false;
-
-                if(tmp == board[1][y] && tmp == board[2][y]){
-
-					announceWinner(tmp);
-					return true;
-
-				}
-
-				return false;
-
-            }
-
-            function checkDiag(x,y){
-
-                if (board[1][1] == " ") {
-                    return false;
-                }
-
-                var tmp = board[1][1];
-
-                if((tmp == board[0][0] && tmp == board[2][2]) || (tmp == board[2][0] && tmp == board[0][2])){
-					announceWinner(tmp);
-					return true;
-
-				}
-
-				return false;
-
-            }
-
-            function resetGame(){
-
-                for(var r = 0; r < 3; r++){
-
-                    for (var c = 0; c < 3; c++) {
-
-                        document.getElementById("r" + r + "_c" + c).innerHTML = " ";
-
-                        board[r][c] = " ";
-
-                    }
-
-                }
-				myFirebaseRef.child("game" + myGame + "/nextTurn").off();
-				myFirebaseRef.child("game" + myGame + "/board").off();
-				myFirebaseRef.child("game" + myGame).off();
-				
-                myFirebaseRef.child("game" + myGame).remove();
-				
-				myGame = "";
-
-            }
-
-		// Returns true if board is full and false otherwise
-
-			function checkTie(){
-
-				for(var r = 0; r < 3; r++){
-
-					for(var c = 0; c < 3; c++){
-
-						if(board[r][c] == " "){
-
-							return false;
-
-						}
-
-					}
-
-				}
-
-				alert("It was a tie!");
-
-				return true;
-
-			}
 
             function getUserName(){             //Asks the User for a Username that they will be using in this session. It must not be a username already being used
                 console.log(users);
@@ -455,14 +210,6 @@
 
             }
 			
-			function announceWinner(winningPiece){		//Announces the winner of the tic tac toe game when a game is over as well as alert the players
-				alert(winningPiece + " Won!");
-				if(myPiece == winningPiece){
-					var opponent = (myPiece == 'X') ? myGame.substring(0, myGame.indexOf('Vs')) : myGame.substring(myGame.indexOf('Vs') + 1);
-					myFirebaseRef.child('chatroom').push({name: 'server', text: user + ' beat ' + opponent });
-				}
-			}
-
 			myFirebaseRef.child('users').once('value',function(snapshot){
 				var index = 0;
 				for(var key in snapshot.val()){
@@ -478,11 +225,5 @@
         </script> 
 
     </body>
-
-    
-
-    
-
-    
 
 </html>
