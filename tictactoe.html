@@ -336,9 +336,7 @@
 				if(tmp == " ") return false;
 
                 if(tmp == board[x][1] && tmp == board[x][2]){
-
-					alert(tmp + " Won!");
-
+					announceWinner(tmp);
 					return true;
 
 				}
@@ -355,8 +353,7 @@
 
                 if(tmp == board[1][y] && tmp == board[2][y]){
 
-					alert(tmp + " Won!");
-
+					announceWinner(tmp);
 					return true;
 
 				}
@@ -368,17 +365,13 @@
             function checkDiag(x,y){
 
                 if (board[1][1] == " ") {
-
                     return false;
-
                 }
 
                 var tmp = board[1][1];
 
                 if((tmp == board[0][0] && tmp == board[2][2]) || (tmp == board[2][0] && tmp == board[0][2])){
-
-					alert(tmp + " Won!");
-
+					announceWinner(tmp);
 					return true;
 
 				}
@@ -461,6 +454,14 @@
                 return false;
 
             }
+			
+			function announceWinner(winningPiece){		//Announces the winner of the tic tac toe game when a game is over as well as alert the players
+				alert(winningPiece + " Won!");
+				if(myPiece == winningPiece){
+					var opponent = (myPiece == 'X') ? myGame.substring(0, myGame.indexOf('Vs')) : myGame.substring(myGame.indexOf('Vs') + 1);
+					myFirebaseRef.child('chatroom').push({name: 'server', text: user + ' beat ' + opponent });
+				}
+			}
 
 			myFirebaseRef.child('users').once('value',function(snapshot){
 				var index = 0;
