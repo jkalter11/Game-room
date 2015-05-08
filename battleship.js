@@ -2,7 +2,7 @@ function battleShip(opponent){
 
 	//The ships for this user. Contains the length of this ship as well as the coordinates it occupies. By default in top right corner
 	this.myShips = [ 
-					{'numSpots': 2 , 'coordinates': [ [0,0],[0,1] ] }, 
+					{'numSpots': 2 ,  'coordinates': [ [0,0],[0,1] ] }, 
 					{'numSpots': 3 ,  'coordinates':[ [1,0],[1,1],[1,2] ] },
 					{'numSpots': 3 ,  'coordinates':[ [2,0],[2,1],[2,2] ] },
 					{'numSpots': 4 ,  'coordinates':[ [3,0],[3,1],[3,2],[3,3] ] },
@@ -10,18 +10,28 @@ function battleShip(opponent){
 					];
 	this.lastShot = [];						//Keeps track of the last location this user shot
 	this.opponent = opponent;				//Stores the name of the opponent
-	this.selectedBoat = [0,0];
+	this.selectedBoat = [0,0];				//Stores the last boat you clicked on in the form of [boat, the exact spot on that boat]
 	this.bsize = 1000/10;
+	this.isReady = false;
+	this.myTurn = false;
 	
 	this.prepareGame = function(){
 		var c = document.getElementById('myCanvas');
 		var ctx = c.getContext('2d');
+		var ctx1 = document.getElementById('enemyBoard').getContext('2d');
+		
 		ctx.fillStyle = "#0000FF";
+		ctx1.fillStyle = "#0000FF";
 		ctx.fillRect(0,0,1000,1000);
+		ctx1.fillRect(0,0,1000,1000);
 		ctx.fillStyle = "#000000";
+		ctx1.fillStyle = "#000000";
+		
 		for(var i = this.bsize; i <= 1000; i+=this.bsize){
 			ctx.fillRect(i,0,10,1000);
 			ctx.fillRect(0,i,1000,10);
+			ctx1.fillRect(i,0,10,1000);
+			ctx1.fillRect(0,i,1000,10);
 		}
 		
 		
@@ -40,12 +50,23 @@ function battleShip(opponent){
 	}
 
 	this.rotateSelected = function(evt){
-		var isHorizontal = tmp.myShips[tmp.selectedBoat[0]]["coordinates"][0][1] == tmp.myShips[tmp.selectedBoat[0]]["coordinates"][1][1];
-		var sx = tmp.myShips[tmp.selectedBoat[0]]["coordinates"][tmp.selectedBoat[1]][0];
-		var sy = tmp.myShips[tmp.selectedBoat[0]]["coordinates"][tmp.selectedBoat[1]][1];
-		var canvas = document.getElementById('myCanvas');
-		var ctx = canvas.getContext('2d');
-		var tmpArray = [];
+		
+		if(evt.which == 13){						//When user presses enter you will lock the gameboard and let other player know they are ready
+			document.getElementById('myCanvas').removeEventListener('click', tmp.shipSet);
+			document.removeEventListener('keydown', tmp.rotateSelected);
+			tmp.isReady = true;
+			myFirebaseRef.child('battleLog').push({name: user, text: 'ready'});
+			document.getElementById('enemyBoard').addEventListener('click', tmp.shoot);
+			alert("Ships locations locked!");
+		}
+		
+		else{
+			var isHorizontal = tmp.myShips[tmp.selectedBoat[0]]["coordinates"][0][1] == tmp.myShips[tmp.selectedBoat[0]]["coordinates"][1][1];
+			var sx = tmp.myShips[tmp.selectedBoat[0]]["coordinates"][tmp.selectedBoat[1]][0];
+			var sy = tmp.myShips[tmp.selectedBoat[0]]["coordinates"][tmp.selectedBoat[1]][1];
+			var canvas = document.getElementById('myCanvas');
+			var ctx = canvas.getContext('2d');
+			var tmpArray = [];
 
 			
 
@@ -76,21 +97,19 @@ function battleShip(opponent){
 				for(var i in tmp.myShips[tmp.selectedBoat[0]]['coordinates'])
 					ctx.fillRect(tmp.bsize * tmp.myShips[tmp.selectedBoat[0]]['coordinates'][i][0] + 10,tmp.bsize * tmp.myShips[tmp.selectedBoat[0]]['coordinates'][i][1]+10, tmp.bsize-10, tmp.bsize-10);
 			}
+			
+		}
 
 	}
 
 	this.validRotation = function(arr){
-
+		console.log(arr);
 		for(var i in arr){
 			var x = arr[i][0];
 			var y = arr[i][1];
 
-			if(x == this.myShips[this.selectedBoat[0]]["coordinates"][this.selectedBoat[1]][0]){
-
-				continue;
-			}
-
 			if(x < 0 || x > 9 || y < 0 || y > 9 || this.checkCollision(x,y,false).isHit){
+
 				return false;
 			}
 		}
@@ -168,11 +187,13 @@ function battleShip(opponent){
 				-Draw black lines horizontally and vertically
 	
 	
-	
+	DONE
 	
 	*/
 	
 	/*
+
+			DONE
 
 			Preparing the game which includes having the player choose where he would like his boats to be placed. 
 				Briefly you would need to:
@@ -183,13 +204,85 @@ function battleShip(opponent){
 
 	*/
 
+		myFirebaseRef.child('battleLog').on('child_added', function(snapshot){
+			n = snapshot.val()['name'];
+			t = snapshot.val()['text'];
+
+			if(n == user) return;
+			
+			if(typeof t == 'string' && t == 'ready' && tmp.isReady){ 
+				myFirebaseRef.child('battleLog').push({name: user, text: 'start'});
+				tmp.myTurn = true;
+				return;
+			}
+
+			var canvas = document.getElementById('myCanvas');
+			var ctx = canvas.getContext('2d');
+
+			if(t instanceof Array){
+				var collide = tmp.checkCollision(t[0],t[1],true);
+				if(collide.isHit){
+					tmp.myShips[collide.boatIndex]['coordinates'].splice(collide.coordinateIndex,1);
+					if(tmp.myShips[collide.boatIndex]['coordinates'].length == 0){
+						tmp.myShips.splice(collide.boatIndex, 1)
+					}
+					if(tmp.myShips.length == 0){
+						myFirebaseRef.child('battleLog').push({name: user, text: 'gameOver'});
+						alert(opponent + " beat you!");
+					}
+					ctx.fillStyle = "#FF0000";
+					ctx.fillRect(t[0] * tmp.bsize, t[1] * tmp.bsize, tmp.bsize, tmp.bsize);
+
+					myFirebaseRef.child('battleLog').push({name: user, text: true});
+					tmp.myTurn = true;
+					return;
+				}
+				myFirebaseRef.child('battleLog').push({name: user, text: false});
+				tmp.myTurn = true;
+				return;
+			}
+
+			if( typeof t == 'boolean'){
+				var c = document.getElementById('enemyBoard');
+				var cx = c.getContext('2d');
+				if(t == true){
+					cx.fillStyle = "#FF0000";
+				}
+				else if (t == false){
+					cx.fillStyle = "#FFFFFF";
+				}
+				cx.fillRect(tmp.lastShot[0] * tmp.bsize, tmp.lastShot[1] * tmp.bsize, tmp.bsize, tmp.bsize);
+				return;
+			}
+
+			if(t == 'gameOver'){
+				//End game and return to chat room
+			}
+
+		})
 
 
+		
 
+		this.shoot = function(evt){
+			alert('shooting');
+			if(tmp.myTurn){
+				var canvas = document.getElementById('enemyBoard');
+				var ctx = canvas.getContext('2d');
+				var mousePos = getMousePos(canvas, evt);
 
+				x = parseInt(mousePos.x/tmp.bsize)
+				y = parseInt(mousePos.y/tmp.bsize)
+				tmp.lastShot = [x,y]
+				myFirebaseRef.child('battleLog').push({name: user, text: [x,y] });
+				tmp.myTurn = false;
+			}
+		}
 
 	/*
 
+			
+			
 			KEEPING THE GAME UPDATED BELOW -- ALL THE EVENT LISTENERS
 
 
