@@ -14,8 +14,15 @@ function battleShip(opponent){
 	this.bsize = 1000/10;
 	this.isReady = false;
 	this.myTurn = false;
+
+	$('#chat').remove();
+
+    $('#message').remove();
+
 	
 	this.prepareGame = function(){
+		var myBody = document.getElementsByTagName('body');
+		myBody[0].innerHTML += "<canvas id = 'myCanvas' width = 1000 height = 1000 style = 'border: 10px solid black'></canvas><canvas id = 'enemyBoard' width = 1000 height = 1000 style = 'border: 10px solid black'></canvas>";
 		var c = document.getElementById('myCanvas');
 		var ctx = c.getContext('2d');
 		var ctx1 = document.getElementById('enemyBoard').getContext('2d');
@@ -52,18 +59,18 @@ function battleShip(opponent){
 	this.rotateSelected = function(evt){
 		
 		if(evt.which == 13){						//When user presses enter you will lock the gameboard and let other player know they are ready
-			document.getElementById('myCanvas').removeEventListener('click', tmp.shipSet);
-			document.removeEventListener('keydown', tmp.rotateSelected);
-			tmp.isReady = true;
-			myFirebaseRef.child('battleLog').push({name: user, text: 'ready'});
-			document.getElementById('enemyBoard').addEventListener('click', tmp.shoot);
+			document.getElementById('myCanvas').removeEventListener('click', currentGame.shipSet);
+			document.removeEventListener('keydown', currentGame.rotateSelected);
+			currentGame.isReady = true;
+			myFirebaseRef.child(myGame + '/battleLog').push({name: user, text: 'ready'});
+			document.getElementById('enemyBoard').addEventListener('click', currentGame.shoot);
 			alert("Ships locations locked!");
 		}
 		
 		else{
-			var isHorizontal = tmp.myShips[tmp.selectedBoat[0]]["coordinates"][0][1] == tmp.myShips[tmp.selectedBoat[0]]["coordinates"][1][1];
-			var sx = tmp.myShips[tmp.selectedBoat[0]]["coordinates"][tmp.selectedBoat[1]][0];
-			var sy = tmp.myShips[tmp.selectedBoat[0]]["coordinates"][tmp.selectedBoat[1]][1];
+			var isHorizontal = currentGame.myShips[currentGame.selectedBoat[0]]["coordinates"][0][1] == currentGame.myShips[currentGame.selectedBoat[0]]["coordinates"][1][1];
+			var sx = currentGame.myShips[currentGame.selectedBoat[0]]["coordinates"][currentGame.selectedBoat[1]][0];
+			var sy = currentGame.myShips[currentGame.selectedBoat[0]]["coordinates"][currentGame.selectedBoat[1]][1];
 			var canvas = document.getElementById('myCanvas');
 			var ctx = canvas.getContext('2d');
 			var tmpArray = [];
@@ -71,31 +78,31 @@ function battleShip(opponent){
 			
 
 			if(isHorizontal){
-				for(var i in tmp.myShips[tmp.selectedBoat[0]]["coordinates"]){
-					var d = tmp.selectedBoat[1] - i;
+				for(var i in currentGame.myShips[currentGame.selectedBoat[0]]["coordinates"]){
+					var d = currentGame.selectedBoat[1] - i;
 					tmpArray.push([sx, sy - d]);
 				}
 			}
 			else{
-				for(var i in tmp.myShips[tmp.selectedBoat[0]]["coordinates"]){
-					var d = tmp.selectedBoat[1] - i;
+				for(var i in currentGame.myShips[currentGame.selectedBoat[0]]["coordinates"]){
+					var d = currentGame.selectedBoat[1] - i;
 					tmpArray.push([sx - d, sy]);
 				}
 			}
 
-			if(tmp.validRotation(tmpArray)){
+			if(currentGame.validRotation(tmpArray)){
 
 				ctx.fillStyle = "#0000FF";
-				for(var i in tmp.myShips[tmp.selectedBoat[0]]['coordinates']){
-					ctx.fillRect(tmp.bsize * tmp.myShips[tmp.selectedBoat[0]]['coordinates'][i][0] + 10,tmp.bsize * tmp.myShips[tmp.selectedBoat[0]]['coordinates'][i][1]+10, tmp.bsize-10, tmp.bsize-10);
+				for(var i in currentGame.myShips[currentGame.selectedBoat[0]]['coordinates']){
+					ctx.fillRect(currentGame.bsize * currentGame.myShips[currentGame.selectedBoat[0]]['coordinates'][i][0] + 10,currentGame.bsize * currentGame.myShips[currentGame.selectedBoat[0]]['coordinates'][i][1]+10, currentGame.bsize-10, currentGame.bsize-10);
 				}
 				
 
-				tmp.myShips[tmp.selectedBoat[0]]["coordinates"] = tmpArray;
+				currentGame.myShips[currentGame.selectedBoat[0]]["coordinates"] = tmpArray;
 
 				ctx.fillStyle = "#999999";
-				for(var i in tmp.myShips[tmp.selectedBoat[0]]['coordinates'])
-					ctx.fillRect(tmp.bsize * tmp.myShips[tmp.selectedBoat[0]]['coordinates'][i][0] + 10,tmp.bsize * tmp.myShips[tmp.selectedBoat[0]]['coordinates'][i][1]+10, tmp.bsize-10, tmp.bsize-10);
+				for(var i in currentGame.myShips[currentGame.selectedBoat[0]]['coordinates'])
+					ctx.fillRect(currentGame.bsize * currentGame.myShips[currentGame.selectedBoat[0]]['coordinates'][i][0] + 10,currentGame.bsize * currentGame.myShips[currentGame.selectedBoat[0]]['coordinates'][i][1]+10, currentGame.bsize-10, currentGame.bsize-10);
 			}
 			
 		}
@@ -123,22 +130,22 @@ function battleShip(opponent){
 		//Test if the user clicked on a boat
 		//If they did then set the value of selected boat
 		var mousePos = getMousePos(document.getElementById('myCanvas'),evt);
-		var collisionStat = tmp.checkCollision(parseInt(mousePos.x / tmp.bsize), parseInt(mousePos.y/tmp.bsize),true);
-		if(collisionStat.isHit) tmp.selectedBoat = [collisionStat.boatIndex,collisionStat.coordinateIndex];
+		var collisionStat = currentGame.checkCollision(parseInt(mousePos.x / currentGame.bsize), parseInt(mousePos.y/currentGame.bsize),true);
+		if(collisionStat.isHit) currentGame.selectedBoat = [collisionStat.boatIndex,collisionStat.coordinateIndex];
 		else if(!collisionStat.isHit){
-			var dx = parseInt(mousePos.x/tmp.bsize) - tmp.myShips[tmp.selectedBoat[0]]['coordinates'][tmp.selectedBoat[1]][0];
-			var dy = parseInt(mousePos.y/tmp.bsize) - tmp.myShips[tmp.selectedBoat[0]]['coordinates'][tmp.selectedBoat[1]][1];
-			if(tmp.validMove(dx,dy)){
+			var dx = parseInt(mousePos.x/currentGame.bsize) - currentGame.myShips[currentGame.selectedBoat[0]]['coordinates'][currentGame.selectedBoat[1]][0];
+			var dy = parseInt(mousePos.y/currentGame.bsize) - currentGame.myShips[currentGame.selectedBoat[0]]['coordinates'][currentGame.selectedBoat[1]][1];
+			if(currentGame.validMove(dx,dy)){
 				ctx.fillStyle = "#0000FF";
-				for(var i in tmp.myShips[tmp.selectedBoat[0]]['coordinates']){
-					ctx.fillRect(tmp.bsize * tmp.myShips[tmp.selectedBoat[0]]['coordinates'][i][0] + 10,tmp.bsize * tmp.myShips[tmp.selectedBoat[0]]['coordinates'][i][1]+10, tmp.bsize-10, tmp.bsize-10);
-					tmp.myShips[tmp.selectedBoat[0]]['coordinates'][i][0] += dx;
-					tmp.myShips[tmp.selectedBoat[0]]['coordinates'][i][1] += dy;
+				for(var i in currentGame.myShips[currentGame.selectedBoat[0]]['coordinates']){
+					ctx.fillRect(currentGame.bsize * currentGame.myShips[currentGame.selectedBoat[0]]['coordinates'][i][0] + 10,currentGame.bsize * currentGame.myShips[currentGame.selectedBoat[0]]['coordinates'][i][1]+10, currentGame.bsize-10, currentGame.bsize-10);
+					currentGame.myShips[currentGame.selectedBoat[0]]['coordinates'][i][0] += dx;
+					currentGame.myShips[currentGame.selectedBoat[0]]['coordinates'][i][1] += dy;
 				}
 
 				ctx.fillStyle = "#999999";
-				for(var i in tmp.myShips[tmp.selectedBoat[0]]['coordinates'])
-					ctx.fillRect(tmp.bsize * tmp.myShips[tmp.selectedBoat[0]]['coordinates'][i][0] + 10,tmp.bsize * tmp.myShips[tmp.selectedBoat[0]]['coordinates'][i][1]+10, tmp.bsize-10, tmp.bsize-10);
+				for(var i in currentGame.myShips[currentGame.selectedBoat[0]]['coordinates'])
+					ctx.fillRect(currentGame.bsize * currentGame.myShips[currentGame.selectedBoat[0]]['coordinates'][i][0] + 10,currentGame.bsize * currentGame.myShips[currentGame.selectedBoat[0]]['coordinates'][i][1]+10, currentGame.bsize-10, currentGame.bsize-10);
 			}
 
 
@@ -204,15 +211,15 @@ function battleShip(opponent){
 
 	*/
 
-		myFirebaseRef.child('battleLog').on('child_added', function(snapshot){
+		myFirebaseRef.child(myGame + '/battleLog').on('child_added', function(snapshot){
 			n = snapshot.val()['name'];
 			t = snapshot.val()['text'];
 
 			if(n == user) return;
 			
-			if(typeof t == 'string' && t == 'ready' && tmp.isReady){ 
+			if(typeof t == 'string' && t == 'ready' && currentGame.isReady){ 
 				myFirebaseRef.child('battleLog').push({name: user, text: 'start'});
-				tmp.myTurn = true;
+				currentGame.myTurn = true;
 				return;
 			}
 
@@ -220,25 +227,26 @@ function battleShip(opponent){
 			var ctx = canvas.getContext('2d');
 
 			if(t instanceof Array){
-				var collide = tmp.checkCollision(t[0],t[1],true);
+				var collide = currentGame.checkCollision(t[0],t[1],true);
 				if(collide.isHit){
-					tmp.myShips[collide.boatIndex]['coordinates'].splice(collide.coordinateIndex,1);
-					if(tmp.myShips[collide.boatIndex]['coordinates'].length == 0){
-						tmp.myShips.splice(collide.boatIndex, 1)
+					currentGame.myShips[collide.boatIndex]['coordinates'].splice(collide.coordinateIndex,1);
+					if(currentGame.myShips[collide.boatIndex]['coordinates'].length == 0){
+						currentGame.myShips.splice(collide.boatIndex, 1)
 					}
-					if(tmp.myShips.length == 0){
-						myFirebaseRef.child('battleLog').push({name: user, text: 'gameOver'});
+					if(currentGame.myShips.length == 0){
+						myFirebaseRef.child(myGame + '/battleLog').push({name: user, text: 'gameOver'});
 						alert(opponent + " beat you!");
+						currentGame.endGame(true);
 					}
 					ctx.fillStyle = "#FF0000";
-					ctx.fillRect(t[0] * tmp.bsize, t[1] * tmp.bsize, tmp.bsize, tmp.bsize);
+					ctx.fillRect(t[0] * currentGame.bsize, t[1] * currentGame.bsize, currentGame.bsize, currentGame.bsize);
 
-					myFirebaseRef.child('battleLog').push({name: user, text: true});
-					tmp.myTurn = true;
+					myFirebaseRef.child(myGame + '/battleLog').push({name: user, text: true});
+					currentGame.myTurn = true;
 					return;
 				}
-				myFirebaseRef.child('battleLog').push({name: user, text: false});
-				tmp.myTurn = true;
+				myFirebaseRef.child(myGame + '/battleLog').push({name: user, text: false});
+				currentGame.myTurn = true;
 				return;
 			}
 
@@ -251,33 +259,43 @@ function battleShip(opponent){
 				else if (t == false){
 					cx.fillStyle = "#FFFFFF";
 				}
-				cx.fillRect(tmp.lastShot[0] * tmp.bsize, tmp.lastShot[1] * tmp.bsize, tmp.bsize, tmp.bsize);
+				cx.fillRect(currentGame.lastShot[0] * currentGame.bsize, currentGame.lastShot[1] * currentGame.bsize, currentGame.bsize, currentGame.bsize);
 				return;
 			}
 
 			if(t == 'gameOver'){
-				//End game and return to chat room
+				currentGame.endGame(false);
 			}
 
 		})
+
+		this.endGame = function(announceWinner){
+			if(announceWinner) myFirebaseRef.child('chatroom').push({name: user, text: user + " beat " + this.opponent});
+			document.getElementById('enemyBoard').removeEventListener('click', this.shoot);
+			myFirebaseRef.child(myGame + "/battleLog").off();
+			myFirebaseRef.child('myGame').remove();
+			myGame = "";
+			loadChatRoom();
+		}
 
 
 		
 
 		this.shoot = function(evt){
 			alert('shooting');
-			if(tmp.myTurn){
+			if(currentGame.myTurn){
 				var canvas = document.getElementById('enemyBoard');
 				var ctx = canvas.getContext('2d');
 				var mousePos = getMousePos(canvas, evt);
 
-				x = parseInt(mousePos.x/tmp.bsize)
-				y = parseInt(mousePos.y/tmp.bsize)
-				tmp.lastShot = [x,y]
-				myFirebaseRef.child('battleLog').push({name: user, text: [x,y] });
-				tmp.myTurn = false;
+				x = parseInt(mousePos.x/currentGame.bsize)
+				y = parseInt(mousePos.y/currentGame.bsize)
+				currentGame.lastShot = [x,y]
+				myFirebaseRef.child(myGame + '/battleLog').push({name: user, text: [x,y] });
+				currentGame.myTurn = false;
 			}
 		}
+
 
 	/*
 
