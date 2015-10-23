@@ -1,5 +1,5 @@
 # tictactoe
-chat room w/ ability to invite people to game of tictactoe and tic tac toe
+chat room w/ ability to invite people to game of tictactoe and battleship
 
 To play game with another user simply type:
 
